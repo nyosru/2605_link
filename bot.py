@@ -1,19 +1,23 @@
 import os
-import subprocess
 import json
 from flask import Flask, request, jsonify
 import vk_api
+from opencode_ai import Opencode
 
 app = Flask(__name__)
 
 GROUP_TOKEN = os.getenv('GROUP_TOKEN')
 CONFIRM_TOKEN = os.getenv('CONFIRM_TOKEN')
+OPENCODE_API_KEY = os.getenv('OPENCODE_API_KEY')
 
 if not GROUP_TOKEN or not CONFIRM_TOKEN:
     raise ValueError("GROUP_TOKEN and CONFIRM_TOKEN must be set in environment variables")
 
 vk_session = vk_api.VkApi(token=GROUP_TOKEN)
 vk = vk_session.get_api()
+
+# Initialize Opencode client with API key
+opencode_client = Opencode(api_key=OPENCODE_API_KEY)
 
 @app.route('/callback', methods=['POST'])
 def callback():
@@ -38,24 +42,15 @@ def callback():
         # Prepare prompt for Opencode
         prompt = f"Пользователь написал: {user_text}. Дай короткий, дружелюбный ответ."
 
-        # Call Opencode CLI
+        # Call Opencode API
         try:
-            result = subprocess.run(
-                ['opencode', 'run', '--prompt', prompt],
-                capture_output=True,
-                text=True,
-                timeout=30
+            response = opencode_client.chat.completions.create(
+                messages=[{"role": "user", "content": prompt}],
+                model="openai/gpt-4o-mini"  # или другая доступная модель
             )
-            if result.returncode != 0:
-                app.logger.error(f"Opencode error: {result.stderr}")
-                answer = "Извините, произошла ошибка при генерации ответа."
-            else:
-                answer = result.stdout.strip()
-        except subprocess.TimeoutExpired:
-            app.logger.error("Opencode timeout")
-            answer = "Извините, превышено время ожидания ответа."
+            answer = response.choices[0].message.content.strip()
         except Exception as e:
-            app.logger.error(f"Exception calling Opencode: {e}")
+            app.logger.error(f"Opencode API error: {e}")
             answer = "Извините, произошла ошибка при генерации ответа."
 
         # Send response via VK API

@@ -1,0 +1,4 @@
+# Environment variables
+.env
+# Ignore local environment variables, but keep example.env as template
+!example.env

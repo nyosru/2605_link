@@ -1,0 +1,11 @@
+version: '3.8'
+
+services:
+  bot:
+    build: .
+    ports:
+      - "5000:5000"
+    environment:
+      - GROUP_TOKEN=${GROUP_TOKEN}
+      - CONFIRM_TOKEN=${CONFIRM_TOKEN}
+    restart: unless-stopped

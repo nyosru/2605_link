@@ -1,106 +1,58 @@
-# VK Bot with Opencode
+<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
 
-This system receives messages from a VK group, processes them with Opencode (locally via Docker), and sends back responses.
+<p align="center">
+<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
+<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
+<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
+<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
+</p>
 
-## Initial Setup
+## About Laravel
 
-### 1. VK Group Configuration
-- Create a VK group/community.
-- Go to **Manage** -> **Messages** -> allow messages from users.
-- Enable **Callback API** in the group settings.
-- Obtain:
-  - **Group Token** (service key) from **Manage** -> **API Work** -> **Create key** (select necessary permissions: messages, offline).
-  - **Confirmation Token** from the Callback API settings page.
+Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
 
-### 2. Environment Variables
-Copy the example `.env` file and fill in your tokens:
+- [Simple, fast routing engine](https://laravel.com/docs/routing).
+- [Powerful dependency injection container](https://laravel.com/docs/container).
+- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
+- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
+- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
+- [Robust background job processing](https://laravel.com/docs/queues).
+- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+
+Laravel is accessible, powerful, and provides tools required for large, robust applications.
+
+## Learning Laravel
+
+Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework.
+
+In addition, [Laracasts](https://laracasts.com) contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+
+You can also watch bite-sized lessons with real-world projects on [Laravel Learn](https://laravel.com/learn), where you will be guided through building a Laravel application from scratch while learning PHP fundamentals.
+
+## Agentic Development
+
+Laravel's predictable structure and conventions make it ideal for AI coding agents like Claude Code, Cursor, and GitHub Copilot. Install [Laravel Boost](https://laravel.com/docs/ai) to supercharge your AI workflow:
 
 ```bash
-cp .env.example .env   # if you have an example, otherwise create .env manually
+composer require laravel/boost --dev
+
+php artisan boost:install
 ```
 
-Edit `.env`:
-```
-GROUP_TOKEN=your_vk_group_token_here
-CONFIRM_TOKEN=your_vk_confirmation_token_here
-```
+Boost provides your agent 15+ tools and skills that help agents build Laravel applications while following best practices.
 
-### 3. Install Dependencies (if not using Docker)
-If you want to run locally without Docker, install the required packages:
+## Contributing
 
-```bash
-pip install -r requirements.txt
-```
+Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
 
-Ensure you have the Opencode CLI installed and available in your PATH.
+## Code of Conduct
 
-### 4. Running with Docker (Recommended)
+In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
 
-#### Build and Start
-```bash
-make build   # or docker-compose build
-make up      # or docker-compose up -d
-```
+## Security Vulnerabilities
 
-#### View Logs
-```bash
-make logs    # docker-compose logs -f
-```
+If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
 
-#### Stop
-```bash
-make down    # docker-compose down
-```
+## License
 
-#### Restart
-```bash
-make restart
-```
-
-#### Open Shell in Container
-```bash
-make shell   # docker-compose exec bot /bin/sh
-```
-
-### 5. Setting Up Public URL for VK Callback
-VK requires a publicly accessible URL for the Callback API.
-
-#### Using ngrok (example)
-1. Install ngrok: https://ngrok.com/download
-2. Start tunnel for port 5000:
-   ```bash
-   ngrok http 5000
-   ```
-3. Copy the forwarding URL (e.g., `https://abc123.ngrok.io`).
-4. In VK group settings -> Callback API, set the URL to `https://abc123.ngrok.io/callback`.
-5. VK will send a confirmation request; your bot should respond with the confirmation token.
-
-### 6. Testing
-- Send a message to your VK group.
-- The bot should receive it, call Opencode, and reply with a generated response.
-- Check logs (`make logs`) for any errors.
-
-## How It Works
-1. VK sends a POST request to `/callback` with event data.
-2. The bot verifies the confirmation token or processes `message_new` events.
-3. For new messages, it extracts the text and forms a prompt for Opencode.
-4. Opencode CLI is invoked with the prompt.
-5. The generated answer is sent back to the user via VK API `messages.send`.
-
-## Troubleshooting
-- **Bot not responding**: Check logs for errors (Opencode timeout, VK API errors).
-- **Opencode not found**: Ensure Opencode is installed in the Docker image (we rely on it being available; if not, you may need to install it via pip or add the binary).
-- **VK API errors**: Verify your GROUP_TOKEN has the required permissions and is not expired.
-
-## Notes
-- The bot uses Flask and runs on port 5000 inside the container.
-- The `.env` file is loaded by docker-compose; ensure it's in the project root.
-- For production, consider using a proper reverse proxy, process manager, and secure secret storage.
-
-## Files Overview
-- `bot.py`: Main application with Flask endpoint and VK/Opencode logic.
-- `Dockerfile`: Defines the Docker image.
-- `docker-compose.yml`: Defines the service, ports, and environment.
-- `requirements.txt`: Python dependencies.
-- `Makefile`: Convenience commands.
-- `.env`: Stores VK tokens (not committed to git).
+The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).

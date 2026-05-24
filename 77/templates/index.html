@@ -1,0 +1,540 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VK Бот — Мониторинг</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #0d1117;
+    --surface: #161b22;
+    --border: #30363d;
+    --text: #e6edf3;
+    --text-muted: #8b949e;
+    --green: #3fb950;
+    --blue: #58a6ff;
+    --red: #f85149;
+    --purple: #bc8cff;
+    --orange: #d29922;
+    --cyan: #39d2c0;
+    --radius: 8px;
+  }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+  }
+  .header {
+    padding: 14px 24px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .header h1 { font-size: 20px; font-weight: 600; }
+  .header h1 span { color: var(--blue); }
+  .header-right { display: flex; align-items: center; gap: 16px; font-size: 13px; color: var(--text-muted); }
+  .status-dot {
+    display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px;
+  }
+  .status-dot.online { background: var(--green); }
+  .status-dot.offline { background: var(--red); }
+
+  .stats-bar {
+    display: flex; gap: 16px; padding: 10px 24px;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+    font-size: 13px;
+    flex-wrap: wrap;
+  }
+  .stat-item { display: flex; align-items: center; gap: 5px; }
+  .stat-value { font-weight: 600; }
+
+  .main {
+    display: grid;
+    grid-template-columns: 1fr 380px;
+    height: calc(100vh - 100px);
+  }
+  @media (max-width: 800px) {
+    .main { grid-template-columns: 1fr; height: auto; }
+    .log-panel { height: 300px; border-left: none; border-top: 1px solid var(--border); }
+  }
+
+  .timeline-panel {
+    overflow-y: auto;
+    padding: 10px 12px;
+  }
+  .timeline-panel::-webkit-scrollbar { width: 8px; }
+  .timeline-panel::-webkit-scrollbar-track { background: transparent; }
+  .timeline-panel::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+  .conv-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    margin-bottom: 10px;
+    overflow: hidden;
+  }
+  .conv-card-header {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--border);
+    cursor: pointer;
+    user-select: none;
+  }
+  .conv-card-header:hover { background: rgba(255,255,255,0.02); }
+  .conv-card-header .arrow {
+    transition: transform 0.2s;
+    font-size: 12px;
+    color: var(--text-muted);
+  }
+  .conv-card.collapsed .conv-card-header .arrow { transform: rotate(-90deg); }
+  .conv-card-header .conv-from { font-weight: 600; font-size: 14px; }
+  .conv-card-header .conv-time { font-size: 12px; color: var(--text-muted); margin-left: auto; }
+  .conv-card-header .conv-status {
+    font-size: 12px;
+    padding: 2px 8px; border-radius: 4px;
+    margin-left: 8px;
+  }
+  .conv-status.done { background: rgba(63,185,80,0.15); color: var(--green); }
+  .conv-status.partial { background: rgba(210,153,34,0.15); color: var(--orange); }
+  .conv-status.error { background: rgba(248,81,73,0.15); color: var(--red); }
+
+  .conv-card-body { }
+  .conv-card.collapsed .conv-card-body { display: none; }
+
+  .flow-step {
+    display: grid;
+    grid-template-columns: 32px 1fr auto;
+    gap: 8px 10px;
+    padding: 10px 14px 10px 14px;
+    align-items: start;
+    position: relative;
+  }
+  .flow-step:not(:last-child)::after {
+    content: '';
+    position: absolute;
+    left: 28px;
+    top: 36px;
+    bottom: 0;
+    width: 2px;
+    background: var(--border);
+  }
+  .flow-step-icon {
+    width: 32px; height: 32px;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 14px;
+    flex-shrink: 0;
+    z-index: 1;
+  }
+  .flow-step-icon.type-message_received { background: rgba(63,185,80,0.15); }
+  .flow-step-icon.type-ai_request      { background: rgba(57,210,192,0.15); }
+  .flow-step-icon.type-ai_response     { background: rgba(88,166,255,0.15); }
+  .flow-step-icon.type-message_sent    { background: rgba(63,185,80,0.15); }
+  .flow-step-icon.type-error          { background: rgba(248,81,73,0.15); }
+
+  .flow-step-label { font-size: 12px; color: var(--text-muted); line-height: 1.4; }
+  .flow-step-label strong { color: var(--text); font-size: 13px; }
+  .flow-step-label .detail {
+    display: block;
+    color: var(--text-muted);
+    font-size: 12px;
+    margin-top: 2px;
+    word-break: break-word;
+  }
+  .flow-step-label .detail.text { color: var(--text); }
+  .flow-step-side {
+    font-size: 11px;
+    color: var(--text-muted);
+    text-align: right;
+    white-space: nowrap;
+    padding-top: 2px;
+  }
+  .flow-step-side .ok   { color: var(--green); }
+  .flow-step-side .fail { color: var(--red); }
+  .flow-step-side .time { color: var(--text-muted); }
+
+  .single-event {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 10px 14px;
+    margin-bottom: 6px;
+    font-size: 13px;
+  }
+  .single-event .se-header {
+    display: flex; align-items: center; gap: 8px;
+  }
+  .single-event .se-icon { font-size: 14px; }
+  .single-event .se-label { color: var(--text-muted); }
+  .single-event .se-time { margin-left: auto; font-size: 11px; color: var(--text-muted); }
+
+  .timeline-empty {
+    display: flex; align-items: center; justify-content: center;
+    height: 200px; color: var(--text-muted); font-size: 14px;
+  }
+
+  .log-panel {
+    border-left: 1px solid var(--border);
+    display: flex; flex-direction: column;
+  }
+  .log-header {
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--border);
+    font-size: 13px; font-weight: 600;
+    display: flex; justify-content: space-between; align-items: center;
+    flex-shrink: 0;
+  }
+  .log-header button {
+    background: none; border: 1px solid var(--border); color: var(--text-muted);
+    padding: 4px 10px; border-radius: 4px; cursor: pointer; font-size: 12px;
+  }
+  .log-header button:hover { color: var(--text); border-color: var(--text-muted); }
+  .log-content {
+    flex: 1; overflow-y: auto;
+    padding: 8px 14px;
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    font-size: 12px;
+    line-height: 1.6;
+  }
+  .log-content::-webkit-scrollbar { width: 8px; }
+  .log-content::-webkit-scrollbar-track { background: transparent; }
+  .log-content::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+  .log-line { white-space: pre-wrap; word-break: break-all; }
+  .log-line .log-time { color: var(--text-muted); }
+  .log-line .log-type-MESSAGE_RECEIVED { color: var(--green); }
+  .log-line .log-type-AI_REQUEST      { color: var(--cyan); }
+  .log-line .log-type-AI_RESPONSE     { color: var(--blue); }
+  .log-line .log-type-MESSAGE_SENT    { color: var(--green); }
+  .log-line .log-type-ERROR           { color: var(--red); }
+  .log-line .log-type-INFO            { color: var(--orange); }
+  .log-line .log-type-HUB_MESSAGE     { color: var(--purple); }
+  .log-line .log-type-WARNING         { color: var(--orange); }
+
+  .log-empty {
+    display: flex; align-items: center; justify-content: center;
+    height: 100%; color: var(--text-muted); font-size: 13px;
+  }
+
+  .fade-in { animation: fadeIn 0.25s ease; }
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(-6px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>VK <span>Бот</span> — Мониторинг</h1>
+  <div class="header-right">
+    <span id="status-indicator"><span class="status-dot online"></span>Подключено</span>
+    <span id="event-count-label">Событий: <strong id="event-count">0</strong></span>
+  </div>
+</div>
+
+<div class="stats-bar" id="stats-bar">
+  <div class="stat-item">Всего: <span class="stat-value" id="stat-total">0</span></div>
+  <div class="stat-item">📩 Получено: <span class="stat-value" id="stat-message_received">0</span></div>
+  <div class="stat-item">🤖 В AI: <span class="stat-value" id="stat-ai_request">0</span></div>
+  <div class="stat-item">💡 Ответ AI: <span class="stat-value" id="stat-ai_response">0</span></div>
+  <div class="stat-item">📤 Отправлено: <span class="stat-value" id="stat-message_sent">0</span></div>
+  <div class="stat-item">❌ Ошибок: <span class="stat-value" id="stat-error">0</span></div>
+  <div class="stat-item">ℹ️ Инфо: <span class="stat-value" id="stat-info">0</span></div>
+</div>
+
+<div class="main">
+  <div class="timeline-panel" id="timeline"></div>
+  <div class="log-panel">
+    <div class="log-header">
+      <span>Лог действий</span>
+      <button onclick="clearLog()">Очистить</button>
+    </div>
+    <div class="log-content" id="log-content">
+      <div class="log-empty">Ожидание событий...</div>
+    </div>
+  </div>
+</div>
+
+<script>
+const ICONS = {
+  message_received: '📩',
+  ai_request:      '🤖',
+  ai_response:     '💡',
+  message_sent:    '📤',
+  error:           '❌',
+  info:            'ℹ️',
+  hub_message:     '📡',
+  warning:         '⚠️',
+};
+const LABELS = {
+  message_received: 'Сообщение получено',
+  ai_request:      'Запрос в Opencode',
+  ai_response:     'Ответ от Opencode',
+  message_sent:    'Отправлено пользователю',
+  error:           'Ошибка',
+  info:            'Информация',
+  hub_message:     'Сообщение хаба',
+  warning:         'Предупреждение',
+};
+const STEP_ORDER = ['message_received', 'ai_request', 'ai_response', 'message_sent', 'error'];
+
+const timelineEl = document.getElementById('timeline');
+const logEl = document.getElementById('log-content');
+const convMap = new Map();
+
+function fmtTime(ts) {
+  const d = new Date(ts);
+  return d.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+}
+
+function escapeHtml(str) {
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
+}
+
+function stepStatus(e) {
+  if (e.type === 'error') return 'error';
+  if (e.type === 'message_sent') return 'done';
+  return 'partial';
+}
+
+function convStatus(events) {
+  const types = new Set(events.map(e => e.type));
+  if (types.has('error') && !types.has('message_sent')) return 'error';
+  if (types.has('message_sent')) return 'done';
+  return 'partial';
+}
+
+function convStatusLabel(status) {
+  if (status === 'done') return '✓ Отправлено';
+  if (status === 'error') return '✗ Ошибка';
+  return '… В обработке';
+}
+
+function renderFlowStep(e, isLast) {
+  const icon = ICONS[e.type] || '📌';
+  const label = LABELS[e.type] || e.type;
+  let detail = '';
+  if (e.type === 'message_received' && e.data.text) detail = e.data.text;
+  else if (e.type === 'ai_request' && e.data.model) detail = `Модель: ${e.data.model}`;
+  else if (e.type === 'ai_response') {
+    if (e.data.answer) detail = e.data.answer;
+    if (e.data.elapsed) detail += ` (${e.data.elapsed}с)`;
+  } else if (e.type === 'message_sent') {
+    if (e.data.text) detail = e.data.text;
+  } else if (e.type === 'error' && e.data.error) detail = e.data.error;
+  else if (e.data.title) detail = e.data.title;
+
+  const isError = e.type === 'error';
+  const sideHtml = isError ? '<span class="fail">✗</span>' : '<span class="ok">✓</span>';
+
+  return `
+    <div class="flow-step fade-in">
+      <div class="flow-step-icon type-${e.type}">${icon}</div>
+      <div class="flow-step-label">
+        <strong>${label}</strong>
+        <span class="detail ${e.type === 'message_received' || e.type === 'ai_response' || e.type === 'message_sent' ? 'text' : ''}">${escapeHtml(detail)}</span>
+      </div>
+      <div class="flow-step-side">${sideHtml} <span class="time">${fmtTime(e.timestamp)}</span></div>
+    </div>
+  `;
+}
+
+function renderConvCard(convId, events) {
+  const sorted = events.slice().sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+  const first = sorted[0];
+  const status = convStatus(sorted);
+  const statusLabel = convStatusLabel(status);
+  const fromText = first?.data?.author || first?.data?.title || 'Собеседник';
+  const stepsHtml = sorted.map((e, i) => renderFlowStep(e, i === sorted.length - 1)).join('');
+  const ts = first?.timestamp || '';
+
+  const card = document.createElement('div');
+  card.className = `conv-card`;
+  card.dataset.conv = convId;
+  card.innerHTML = `
+    <div class="conv-card-header">
+      <span class="arrow">▼</span>
+      <span class="conv-from">${escapeHtml(fromText)}</span>
+      <span class="conv-status ${status}">${statusLabel}</span>
+      <span class="conv-time">${ts ? fmtTime(ts) : ''}</span>
+    </div>
+    <div class="conv-card-body">${stepsHtml}</div>
+  `;
+  const header = card.querySelector('.conv-card-header');
+  header.addEventListener('click', () => card.classList.toggle('collapsed'));
+  return card;
+}
+
+function upsertConv(convId, events) {
+  let existing = convMap.get(convId);
+  if (existing) {
+    const existingIds = new Set(existing.events.map(e => e.id));
+    for (const e of events) {
+      if (!existingIds.has(e.id)) {
+        existing.events.push(e);
+      }
+    }
+    const card = existing.el;
+    const sorted = existing.events.slice().sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+    const status = convStatus(existing.events);
+    card.querySelector('.conv-status').className = `conv-status ${status}`;
+    card.querySelector('.conv-status').textContent = convStatusLabel(status);
+    const body = card.querySelector('.conv-card-body');
+    body.innerHTML = sorted.map((e, i) => renderFlowStep(e, i === sorted.length - 1)).join('');
+    return false;
+  } else {
+    const card = renderConvCard(convId, events);
+    convMap.set(convId, { el: card, events: [...events] });
+    return card;
+  }
+}
+
+function updateTimeline(events) {
+  if (!events.length) return;
+
+  const convGroups = new Map();
+  const singles = [];
+
+  for (const e of events) {
+    if (e.conv) {
+      if (!convGroups.has(e.conv)) convGroups.set(e.conv, []);
+      convGroups.get(e.conv).push(e);
+    } else {
+      singles.push(e);
+    }
+  }
+
+  const firstConvCard = timelineEl.querySelector('.conv-card');
+  const firstSingle = timelineEl.querySelector('.single-event');
+
+  for (const [convId, convEvents] of convGroups) {
+    const card = upsertConv(convId, convEvents);
+    if (card) {
+      if (firstConvCard) {
+        timelineEl.insertBefore(card, firstConvCard);
+      } else if (firstSingle) {
+        timelineEl.insertBefore(card, firstSingle);
+      } else {
+        timelineEl.appendChild(card);
+      }
+    }
+  }
+
+  for (const e of singles) {
+    const icon = ICONS[e.type] || '📌';
+    const label = e.data?.title || LABELS[e.type] || e.type;
+    const se = document.createElement('div');
+    se.className = 'single-event fade-in';
+    se.innerHTML = `
+      <div class="se-header">
+        <span class="se-icon">${icon}</span>
+        <span class="se-label">${escapeHtml(label)}</span>
+        <span class="se-time">${fmtTime(e.timestamp)}</span>
+      </div>
+    `;
+    if (firstConvCard) {
+      timelineEl.insertBefore(se, firstConvCard);
+    } else if (firstSingle) {
+      timelineEl.insertBefore(se, firstSingle);
+    } else {
+      timelineEl.appendChild(se);
+    }
+  }
+
+  const empty = timelineEl.querySelector('.timeline-empty');
+  if (empty) empty.remove();
+}
+
+function logTitle(e) {
+  return e.data?.title || LABELS[e.type] || e.type;
+}
+function logDetail(e) {
+  const parts = [];
+  if (e.data?.text) parts.push(e.data.text);
+  if (e.data?.error) parts.push(e.data.error);
+  if (e.data?.answer) parts.push(e.data.answer);
+  if (e.data?.message) parts.push(typeof e.data.message === 'string' ? e.data.message : JSON.stringify(e.data.message));
+  return parts.length ? ': ' + parts.join(' | ') : '';
+}
+
+function renderLogLine(e) {
+  const line = document.createElement('div');
+  line.className = 'log-line fade-in';
+  line.innerHTML = `<span class="log-time">${fmtTime(e.timestamp)}</span> [<span class="log-type-${e.type.toUpperCase()}">${e.type.toUpperCase()}</span>] ${escapeHtml(logTitle(e) + logDetail(e))}`;
+  return line;
+}
+
+function updateLog(events) {
+  if (!events.length) return;
+  const empty = logEl.querySelector('.log-empty');
+  if (empty) empty.remove();
+  for (const e of events) {
+    logEl.appendChild(renderLogLine(e));
+  }
+  logEl.scrollTop = logEl.scrollHeight;
+}
+
+function updateStats(stats) {
+  document.getElementById('stat-total').textContent = stats.total;
+  document.getElementById('event-count').textContent = stats.total;
+  for (const [type, count] of Object.entries(stats.by_type)) {
+    const el = document.getElementById('stat-' + type);
+    if (el) el.textContent = count;
+  }
+}
+
+async function loadInitial() {
+  try {
+    const [eventsRes, statsRes] = await Promise.all([
+      fetch('/api/events?limit=100'),
+      fetch('/api/stats')
+    ]);
+    const events = await eventsRes.json();
+    const stats = await statsRes.json();
+    updateTimeline(events);
+    updateLog(events);
+    updateStats(stats);
+  } catch (err) {
+    console.error('Initial load error:', err);
+  }
+}
+
+function clearLog() {
+  logEl.innerHTML = '<div class="log-empty">Лог очищен</div>';
+}
+
+function connectSSE() {
+  const evtSource = new EventSource('/api/events/stream');
+  evtSource.onmessage = function(event) {
+    if (!event.data || event.data === ': heartbeat') return;
+    try {
+      const events = JSON.parse(event.data);
+      if (!events.length) return;
+      updateTimeline(events);
+      updateLog(events);
+      fetch('/api/stats').then(r => r.json()).then(updateStats).catch(() => {});
+    } catch (err) {
+      console.error('SSE parse error:', err);
+    }
+  };
+  evtSource.onerror = function() {
+    document.getElementById('status-indicator').innerHTML = '<span class="status-dot offline"></span>Отключено';
+    evtSource.close();
+    setTimeout(() => {
+      document.getElementById('status-indicator').innerHTML = '<span class="status-dot online"></span>Подключено';
+      connectSSE();
+    }, 3000);
+  };
+}
+
+loadInitial();
+connectSSE();
+</script>
+</body>
+</html>

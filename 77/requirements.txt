@@ -1,0 +1,4 @@
+vk_api
+Flask
+opencode-ai
+python-dotenv

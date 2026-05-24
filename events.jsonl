@@ -1,0 +1,5 @@
+{"id": "6a809dea", "timestamp": "2026-05-23T15:04:04.787764+00:00", "type": "warning", "source": "bot", "data": {"title": "Таймаут запроса хаба"}}
+{"id": "f72fe896", "timestamp": "2026-05-23T18:05:19.148685+00:00", "type": "warning", "source": "bot", "data": {"title": "Таймаут запроса хаба"}}
+{"id": "ac0bd1fc", "timestamp": "2026-05-23T18:09:08.461713+00:00", "type": "warning", "source": "bot", "data": {"title": "Таймаут запроса хаба"}}
+{"id": "dc2dce89", "timestamp": "2026-05-23T21:37:06.855678+00:00", "type": "warning", "source": "bot", "data": {"title": "Таймаут запроса хаба"}}
+{"id": "04bc1579", "timestamp": "2026-05-24T00:06:41.391758+00:00", "type": "error", "source": "bot", "data": {"title": "Ошибка подключения к хабу", "error": "HTTPSConnectionPool(host='api.php-cat.com', port=443): Max retries exceeded with url: /api/vk/incoming?channel=testPM&preview=true&channel=my_channel (Caused by NewConnectionError(\"HTTPSConnection(host='api.php-cat.com', port=443): Failed to establish a new connection: [Errno 111] Connection refused\"))"}}

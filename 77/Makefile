@@ -8,28 +8,26 @@ help:
 	@echo "  make logs        - Follow container logs"
 	@echo "  make restart     - Restart containers"
 	@echo "  make shell       - Open shell in the bot container"
-	@echo "  make listen      - Run message listener manually (inside container)"
-	@echo "  make listen-logs - Follow listener logs"
 	@echo "  make run-longpoll- Run longpoll bot locally (no Docker)"
 	@echo "  make help        - Show this help"
 
 build:
-	docker compose build
+	docker-compose build
 
 up:
-	docker compose up -d
+	docker-compose up -d
 
 down:
-	docker compose down
+	docker-compose down
 
 logs:
-	docker compose logs -f
+	docker-compose logs -f
 
 restart:
-	docker compose restart
+	docker-compose restart
 
 shell:
-	docker compose exec bot /bin/sh
+	docker-compose exec bot /bin/sh
 
 l:
 	docker exec vk_bot pip3 install --break-system-packages -r requirements.txt
@@ -38,24 +36,3 @@ l:
 go:
 	make up
 	make l
-
-bash:
-	docker exec -it ii_factory_app bash
-
-opencode-logs:
-	docker logs ii_factory_opencode
-
-tailwind:
-	docker exec ii_factory_app npm run build
-
-tailwind-dev:
-	docker exec -it ii_factory_app npm run dev
-
-listen:
-	docker compose exec ii_factory_app php artisan messages:listen
-
-listen-logs:
-	docker logs -f ii_factory_listener
-
-process:
-	chmod +x bin/process.sh && ./bin/process.sh
